@@ -2,24 +2,25 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from schedulefree import AdamWScheduleFree
 
-from modules import DoubleConv, Down, Up
+from modules import Down, Up, ResBlock
 
 
 class UNet(pl.LightningModule):
-    def __init__(self, num_classes=1, in_channel=3, bilinear=True):
+    def __init__(self, num_classes=1, in_channel=3, bicubic=True):
         super().__init__()
-        self.bilinear = bilinear
+        self.bicubic = bicubic
         self.num_classes = num_classes
-        self.layer1 = DoubleConv(in_channel, 64)
+        self.layer1 = nn.Sequential(ResBlock(in_channel, 64, 64), ResBlock(64, 64, 64))
+        # self.layer1 = DoubleConv(in_channel, 64)
         self.layer2 = Down(64, 128)
         self.layer3 = Down(128, 256)
         self.layer4 = Down(256, 512)
-        self.factor = 2 if self.bilinear else 1
+        self.factor = 2 if self.bicubic else 1
         self.layer5 = Down(512, 1024 // self.factor)
-        self.layer6 = Up(1024, 512 // self.factor, bilinear=self.bilinear)
-        self.layer7 = Up(512, 256 // self.factor, bilinear=self.bilinear)
-        self.layer8 = Up(256, 128 // self.factor, bilinear=self.bilinear)
-        self.layer9 = Up(128, 64, bilinear=self.bilinear)
+        self.layer6 = Up(1024, 512 // self.factor, bicubic=self.bicubic)
+        self.layer7 = Up(512, 256 // self.factor, bicubic=self.bicubic)
+        self.layer8 = Up(256, 128 // self.factor, bicubic=self.bicubic)
+        self.layer9 = Up(128, 64, bicubic=self.bicubic)
 
         self.layer10 = nn.Conv2d(64, self.num_classes, kernel_size=1)
 

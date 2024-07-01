@@ -11,8 +11,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer(
         accelerator="auto",
         max_epochs=100,
-        logger=WandbLogger(log_model="all", project="MFFU-Net"),
-        log_every_n_steps=2,
+        # logger=WandbLogger(project="MFFU-Net", name="res-ca-bicubic"),
     )
     trainer.fit(
         model,
