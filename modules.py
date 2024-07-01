@@ -48,8 +48,8 @@ class Down(nn.Module):
         self.net = nn.Sequential(
             nn.MaxPool2d(kernel_size=2, stride=2),
             ResBlock(in_size=in_ch, hidden_size=out_ch, out_size=out_ch),
-            ResBlock(out_ch, hidden_size=out_ch, out_size=out_ch),
             CAModule(in_channels=out_ch),
+            ResBlock(out_ch, hidden_size=out_ch, out_size=out_ch),
         )
 
     def forward(self, x):
