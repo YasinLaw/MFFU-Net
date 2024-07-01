@@ -36,7 +36,7 @@ class UNet(pl.LightningModule):
             ResBlock(in_size=1, hidden_size=64, out_size=64),
             ResBlock(in_size=64, hidden_size=128, out_size=128),
             ResBlock(in_size=128, hidden_size=64, out_size=64),
-            nn.Conv2d(64, self.num_classes, kernel_size=1),
+            nn.Conv2d(64, self.num_classes, kernel_size=3),
             nn.Sigmoid(),
         )
 

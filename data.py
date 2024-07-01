@@ -64,4 +64,4 @@ class CrackForestDataset(Dataset):
         label = np.expand_dims(np.array(self.labels[idx]), axis=2) / 255
         image = self.transform(image)
         label = self.transform(label)
-        return image, label
+        return image, label.float()
