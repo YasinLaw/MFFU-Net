@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 
 class ResBlock(nn.Module):
-
     def __init__(self, in_size: int, hidden_size: int, out_size: int, pad: int = 1):
         super().__init__()
         self.conv1 = nn.Conv2d(in_size, hidden_size, kernel_size=3, padding=pad)
@@ -19,27 +18,11 @@ class ResBlock(nn.Module):
 
     def convblock(self, x):
         x = F.relu(self.batchnorm1(self.conv1(x)), inplace=True)
-        x = F.relu(self.batchnorm2(self.conv2(x)), inplace=True)
+        x = self.batchnorm2(self.conv2(x))
         return x
 
     def forward(self, x):
-        return self.skip_connection(x) + self.convblock(x)  # skip connection
-
-
-class DoubleConv(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.net(x)
+        return F.relu(self.skip_connection(x) + self.convblock(x), inplace=True)
 
 
 class Down(nn.Module):
@@ -72,11 +55,8 @@ class Up(nn.Module):
             )
         self.conv = nn.Sequential(
             ResBlock(in_ch, hidden_size=out_ch, out_size=out_ch),
+            CAModule(in_channels=out_ch),
             ResBlock(out_ch, hidden_size=out_ch, out_size=out_ch),
-        )
-        # self.conv = DoubleConv(in_ch, out_ch)
-        self.bilinear_up = nn.Upsample(
-            scale_factor=2, mode="bilinear", align_corners=True
         )
 
     def forward(self, x1, x2):
@@ -90,8 +70,7 @@ class Up(nn.Module):
         )
 
         x = torch.cat([x2, x1], dim=1)
-        bilinear_output = self.bilinear_up(x1)
-        return self.conv(x), bilinear_output
+        return self.conv(x)
 
 
 class CAModule(nn.Module):

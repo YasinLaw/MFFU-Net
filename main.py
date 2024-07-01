@@ -9,7 +9,7 @@ if __name__ == "__main__":
     data_module = CrackForest()
 
     trainer = pl.Trainer(
-        accelerator="auto",
+        accelerator="cpu",
         max_epochs=100,
         # logger=WandbLogger(project="MFFU-Net", name="res-ca-bicubic"),
     )

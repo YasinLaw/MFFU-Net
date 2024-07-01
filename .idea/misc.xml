@@ -3,7 +3,9 @@
   <component name="Black">
     <option name="enabledOnReformat" value="true" />
     <option name="enabledOnSave" value="true" />
-    <option name="sdkName" value="C:\Users\Luo\anaconda3" />
+    <option name="executionMode" value="BINARY" />
+    <option name="pathToExecutable" value="/opt/homebrew/anaconda3/bin/black" />
+    <option name="sdkName" value="/opt/homebrew/anaconda3" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="C:\Users\Luo\anaconda3" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="/opt/homebrew/anaconda3" project-jdk-type="Python SDK" />
 </project>
