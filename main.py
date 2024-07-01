@@ -1,5 +1,5 @@
-import lightning as pl
-from lightning.pytorch.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger
+import pytorch_lightning as pl
 
 from data import CrackForest
 from model import UNet
@@ -9,8 +9,8 @@ if __name__ == "__main__":
     data_module = CrackForest()
 
     trainer = pl.Trainer(
-        accelerator="cpu",
-        max_epochs=30,
+        accelerator="auto",
+        max_epochs=100,
         logger=WandbLogger(log_model="all", project="MFFU-Net"),
         log_every_n_steps=2,
     )

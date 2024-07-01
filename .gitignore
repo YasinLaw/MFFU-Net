@@ -3,4 +3,5 @@ temp/
 lightning_logs/
 wandb/
 MFFU-Net/
+test/
 *.png

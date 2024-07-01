@@ -1,5 +1,5 @@
 import torch.nn as nn
-import lightning as pl
+import pytorch_lightning as pl
 from schedulefree import AdamWScheduleFree
 
 from modules import DoubleConv, Down, Up
@@ -61,7 +61,7 @@ class UNet(pl.LightningModule):
         return self.shared_step(batch)
 
     def configure_optimizers(self):
-        return AdamWScheduleFree(self.parameters(), lr=1e-5)
+        return AdamWScheduleFree(self.parameters(), lr=1e-3)
 
     def on_train_epoch_start(self):
         optimizer = self.optimizers().optimizer
