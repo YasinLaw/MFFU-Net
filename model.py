@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 import torch.optim
 from schedulefree import AdamWScheduleFree
 
-from modules import Down, Up, ResBlock
+from modules import Down, Up, ResBlock, AttnBlock
 
 
 class UNet(pl.LightningModule):
@@ -32,11 +32,14 @@ class UNet(pl.LightningModule):
             nn.CrossEntropyLoss() if num_classes > 1 else nn.BCEWithLogitsLoss()
         )
 
+        self.adversarial_loss = nn.BCEWithLogitsLoss()
+
         self.discriminator = nn.Sequential(
             ResBlock(in_size=1, hidden_size=64, out_size=64),
             ResBlock(in_size=64, hidden_size=128, out_size=128),
             ResBlock(in_size=128, hidden_size=64, out_size=64),
-            nn.Conv2d(64, self.num_classes, kernel_size=3),
+            AttnBlock(in_ch=64),
+            nn.Conv2d(64, self.num_classes, kernel_size=3, padding=1),
             nn.Sigmoid(),
         )
 
@@ -55,29 +58,44 @@ class UNet(pl.LightningModule):
         x6 = self.layer8(x6, x2)
         x6 = self.layer9(x6, x1)
 
-        return self.layer10(x6), x5
+        return self.layer10(x6)
 
     def shared_step(self, batch):
         image, label = batch
-        output, _ = self(image)
+        output = self(image)
         loss = self.criterion(output, label)
         self.log_dict({f"{'train' if self.training else 'val'}/loss": loss})
         return loss
 
     def training_step(self, batch, batch_idx):
-        g_opt, d_opt = self.optimizers()
+        g_opt, e_opt, d_opt = self.optimizers()
         image, label = batch
 
-        output, hidden = self(image)
+        output = self(image)
         loss = self.criterion(output, label)
 
+        g_opt.zero_grad()
+        self.manual_backward(loss)
+        g_opt.step()
+
         d_opt.zero_grad()
-        d_real = self.criterion(self.discriminator(label), label)
-        d_fake = self.criterion(self.discriminator(output), label)
+        d_real = self.adversarial_loss(
+            self.discriminator(label), torch.ones_like(label)
+        )
+        d_fake = self.adversarial_loss(
+            self.discriminator(output), torch.zeros_like(label)
+        )
         self.manual_backward(d_real + d_fake)
         d_opt.step()
 
-        return loss
+        e_opt.zero_grad()
+        d_real = self.adversarial_loss(
+            self.discriminator(output), torch.ones_like(label)
+        )
+        self.manual_backward(d_real)
+        d_opt.step()
+
+        self.log_dict({f"{'train' if self.training else 'val'}/loss": loss})
 
     def validation_step(self, batch, batch_idx):
         return self.shared_step(batch)
@@ -86,19 +104,23 @@ class UNet(pl.LightningModule):
         return self.shared_step(batch)
 
     def configure_optimizers(self):
-        g_params = (
+        g_opt = torch.optim.AdamW(self.parameters(), lr=1e-5)
+
+        e_params = (
             list(self.layer2.parameters())
             + list(self.layer3.parameters())
             + list(self.layer4.parameters())
             + list(self.layer5.parameters())
         )
-        g_opt = torch.optim.AdamW(g_params, lr=1e-5)
+        e_opt = torch.optim.AdamW(e_params, lr=1e-5)
 
+        # todo: figure out what params should be there
         d_params = (
             list(self.layer6.parameters())
             + list(self.layer7.parameters())
             + list(self.layer8.parameters())
             + list(self.layer9.parameters())
+            + list(self.discriminator.parameters())
         )
         d_opt = torch.optim.AdamW(d_params, lr=1e-5)
-        return g_opt, d_opt
+        return g_opt, e_opt, d_opt

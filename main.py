@@ -11,7 +11,7 @@ if __name__ == "__main__":
     data_module = CrackForest()
 
     trainer = pl.Trainer(
-        accelerator="cpu" if platform.system() == "Darwin" else "gpu",
+        accelerator="mps" if platform.system() == "Darwin" else "gpu",
         max_epochs=100,
         # logger=WandbLogger(project="MFFU-Net", name="res-ca-bicubic"),
     )
