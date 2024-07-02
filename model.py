@@ -35,12 +35,18 @@ class UNet(pl.LightningModule):
         self.adversarial_loss = nn.BCEWithLogitsLoss()
 
         self.discriminator = nn.Sequential(
+            nn.Conv2d(self.num_classes, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, 2),
+            nn.Dropout(0.25),
+            nn.Flatten(),
             nn.LazyLinear(256),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.LazyLinear(128),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(inplace=True),
             nn.LazyLinear(64),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
             nn.LazyLinear(1),
             nn.Sigmoid(),
         )
@@ -83,11 +89,11 @@ class UNet(pl.LightningModule):
         batch_size = label.size(dim=0)
 
         d_real = self.adversarial_loss(
-            self.discriminator(torch.flatten(label, start_dim=1)),
+            self.discriminator(label),
             torch.ones(batch_size, 1).to(self.device),
         )
         d_fake = self.adversarial_loss(
-            self.discriminator(torch.flatten(output.detach(), start_dim=1)),
+            self.discriminator(output.detach()),
             torch.zeros(batch_size, 1).to(self.device),
         )
 
@@ -97,7 +103,7 @@ class UNet(pl.LightningModule):
         d_opt.step()
 
         err_e = self.adversarial_loss(
-            self.discriminator(torch.flatten(self(image), start_dim=1)),
+            self.discriminator(self(image)),
             torch.ones(batch_size, 1).to(self.device),
         )
         e_opt.zero_grad()
