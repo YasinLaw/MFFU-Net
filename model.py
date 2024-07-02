@@ -1,3 +1,4 @@
+import schedulefree
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.optim
@@ -112,30 +113,39 @@ class UNet(pl.LightningModule):
 
         self.log_dict({f"{'train' if self.training else 'val'}/loss": loss})
 
-    # def validation_step(self, batch, batch_idx):
-    #     return self.shared_step(batch)
-    #
-    # def test_step(self, batch, batch_idx):
-    #     return self.shared_step(batch)
+    def validation_step(self, batch, batch_idx):
+        return self.shared_step(batch)
+
+    def test_step(self, batch, batch_idx):
+        return self.shared_step(batch)
+
+    def on_train_epoch_start(self):
+        opts = self.optimizers()
+        for opt in opts:
+            opt.train()
+
+    def on_validation_epoch_start(self):
+        opts = self.optimizers()
+        for opt in opts:
+            opt.eval()
+
+    def on_test_start(self):
+        opts = self.optimizers()
+        for opt in opts:
+            opt.eval()
 
     def configure_optimizers(self):
-        g_opt = torch.optim.AdamW(self.parameters(), lr=1e-5)
+        g_opt = schedulefree.AdamWScheduleFree(self.parameters(), lr=1e-5)
 
         e_params = (
-            list(self.layer2.parameters())
-            + list(self.layer3.parameters())
-            + list(self.layer4.parameters())
-            + list(self.layer5.parameters())
-        )
-        e_opt = torch.optim.AdamW(e_params, lr=1e-5)
-
-        # todo: figure out what params should be there
-        d_params = (
             list(self.layer6.parameters())
             + list(self.layer7.parameters())
             + list(self.layer8.parameters())
             + list(self.layer9.parameters())
-            + list(self.discriminator.parameters())
+            + list(self.layer10.parameters())
         )
-        d_opt = torch.optim.AdamW(d_params, lr=1e-5)
+        e_opt = schedulefree.AdamWScheduleFree(e_params, lr=1e-5)
+
+        d_params = list(self.discriminator.parameters())
+        d_opt = schedulefree.AdamWScheduleFree(d_params, lr=1e-5)
         return g_opt, e_opt, d_opt
