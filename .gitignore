@@ -6,3 +6,4 @@ MFFU-Net/
 test/
 .idea/
 *.png
+test.py
