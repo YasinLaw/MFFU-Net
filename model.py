@@ -35,11 +35,13 @@ class UNet(pl.LightningModule):
         self.adversarial_loss = nn.BCEWithLogitsLoss()
 
         self.discriminator = nn.Sequential(
-            ResBlock(in_size=1, hidden_size=64, out_size=64),
-            ResBlock(in_size=64, hidden_size=128, out_size=128),
-            ResBlock(in_size=128, hidden_size=64, out_size=64),
-            AttnBlock(in_ch=64),
-            nn.Conv2d(64, self.num_classes, kernel_size=3, padding=1),
+            nn.LazyLinear(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.LazyLinear(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.LazyLinear(64),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.LazyLinear(1),
             nn.Sigmoid(),
         )
 
@@ -78,30 +80,37 @@ class UNet(pl.LightningModule):
         self.manual_backward(loss)
         g_opt.step()
 
-        d_opt.zero_grad()
+        batch_size = label.size(dim=0)
+
         d_real = self.adversarial_loss(
-            self.discriminator(label), torch.ones_like(label)
+            self.discriminator(torch.flatten(label, start_dim=1)),
+            torch.ones(batch_size, 1).to(self.device),
         )
         d_fake = self.adversarial_loss(
-            self.discriminator(output), torch.zeros_like(label)
+            self.discriminator(torch.flatten(output.detach(), start_dim=1)),
+            torch.zeros(batch_size, 1).to(self.device),
         )
-        self.manual_backward(d_real + d_fake)
+
+        err_d = d_real + d_fake
+        d_opt.zero_grad()
+        self.manual_backward(err_d)
         d_opt.step()
 
-        e_opt.zero_grad()
-        d_real = self.adversarial_loss(
-            self.discriminator(output), torch.ones_like(label)
+        err_e = self.adversarial_loss(
+            self.discriminator(torch.flatten(self(image), start_dim=1)),
+            torch.ones(batch_size, 1).to(self.device),
         )
-        self.manual_backward(d_real)
-        d_opt.step()
+        e_opt.zero_grad()
+        self.manual_backward(err_e)
+        e_opt.step()
 
         self.log_dict({f"{'train' if self.training else 'val'}/loss": loss})
 
-    def validation_step(self, batch, batch_idx):
-        return self.shared_step(batch)
-
-    def test_step(self, batch, batch_idx):
-        return self.shared_step(batch)
+    # def validation_step(self, batch, batch_idx):
+    #     return self.shared_step(batch)
+    #
+    # def test_step(self, batch, batch_idx):
+    #     return self.shared_step(batch)
 
     def configure_optimizers(self):
         g_opt = torch.optim.AdamW(self.parameters(), lr=1e-5)
