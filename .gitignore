@@ -5,3 +5,5 @@ wandb/
 MFFU-Net/
 test/
 *.png
+.idea/
+test.py
