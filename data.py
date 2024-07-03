@@ -11,7 +11,7 @@ from torchvision.transforms import transforms
 
 class CrackForest(pl.LightningDataModule):
     def __init__(
-        self, data_dir="./data/CrackForest-dataset", batch_size=8, num_workers=19
+        self, data_dir="./data/CrackForest-dataset", batch_size=2, num_workers=19
     ):
         super().__init__()
         self.cf_train = None

@@ -1,8 +1,9 @@
 import torch.nn as nn
+import torch
 import pytorch_lightning as pl
 from schedulefree import AdamWScheduleFree
 
-from modules import Down, Up, ResBlock
+from modules import Down, Up, ResBlock, CAModule, CoorAttn
 
 
 class UNet(pl.LightningModule):
@@ -17,12 +18,28 @@ class UNet(pl.LightningModule):
         self.layer4 = Down(256, 512)
         self.factor = 2 if self.bicubic else 1
         self.layer5 = Down(512, 1024 // self.factor)
-        self.layer6 = Up(1024, 512 // self.factor, bicubic=self.bicubic)
-        self.layer7 = Up(512, 256 // self.factor, bicubic=self.bicubic)
-        self.layer8 = Up(256, 128 // self.factor, bicubic=self.bicubic)
-        self.layer9 = Up(128, 64, bicubic=self.bicubic)
 
-        self.layer10 = nn.Conv2d(64, self.num_classes, kernel_size=1)
+        # self.ca = CAModule(in_channels=1024 // self.factor)
+        self.ca = CoorAttn(inp=1024 // self.factor, oup=1024 // self.factor)
+
+        self.layer6 = Up(
+            1024,
+            512 // self.factor,
+            bicubic=self.bicubic,
+            fusion_factor=self.factor * 4,
+        )
+        self.layer7 = Up(
+            512, 256 // self.factor, bicubic=self.bicubic, fusion_factor=self.factor * 2
+        )
+        self.layer8 = Up(
+            256, 128 // self.factor, bicubic=self.bicubic, fusion_factor=self.factor * 1
+        )
+        self.layer9 = Up(128, 64, bicubic=self.bicubic, fusion_factor=1)
+
+        self.layer10 = nn.Sequential(
+            nn.LazyConv2d(out_channels=self.num_classes, kernel_size=1),
+            nn.Sigmoid(),
+        )
 
         self.criterion = (
             nn.CrossEntropyLoss() if num_classes > 1 else nn.BCEWithLogitsLoss()
@@ -37,13 +54,16 @@ class UNet(pl.LightningModule):
         x4 = self.layer4(x3)
         x5 = self.layer5(x4)
 
+        x5 = self.ca(x5)
+
         x6, f1 = self.layer6(x5, x4)
         x6, f2 = self.layer7(x6, x3)
         x6, f3 = self.layer8(x6, x2)
         x6, f4 = self.layer9(x6, x1)
 
-        # x = f1 + f2 + f3 + f4
-        return self.layer10(x6)
+        x = torch.cat((f1, f2, f3, f4, x6), dim=1)
+        x = self.layer10(x)
+        return x
 
     def shared_step(self, batch):
         image, label = batch
